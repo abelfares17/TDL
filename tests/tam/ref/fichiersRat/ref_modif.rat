@@ -4,6 +4,6 @@ void test(ref int a) {
 
 main {
   int x = 5;
-  test(x);
+  test(ref x);
   print x;
 }

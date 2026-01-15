@@ -7,7 +7,7 @@ void swap(ref int a, ref int b) {
 main {
   int x = 1;
   int y = 4;
-  swap(x, y);
+  swap(ref x, ref y);
   print x;
   print y;
 }

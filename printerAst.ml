@@ -56,10 +56,16 @@ struct
     | Ident n -> n^" "
     | Deref aff -> "(*"^(string_of_affectable aff)^") "
 
+  (* Conversion des arguments *)
+  let rec string_of_argument arg =
+    match arg with
+    | ArgNormal e -> string_of_expression e
+    | ArgRef e -> "ref "^(string_of_expression e)
+
   (* Conversion des expressions *)
-  let rec string_of_expression e =
+  and string_of_expression e =
     match e with
-    | AppelFonction (n,le) -> "call "^n^"("^((List.fold_right (fun i tq -> (string_of_expression i)^tq) le ""))^") "
+    | AppelFonction (n,le) -> "call "^n^"("^((List.fold_right (fun arg tq -> (string_of_argument arg)^tq) le ""))^") "
     | Affectable a -> string_of_affectable a
     | Booleen b -> if b then "true " else "false "
     | Entier i -> (string_of_int i)^" "
@@ -93,7 +99,7 @@ struct
           | Some e -> "Retour  : RETURN "^(string_of_expression e)^"\n"
           | None -> "Retour  : RETURN\n"
         end
-    | AppelProc (n,le) -> "AppelProc  : call "^n^"("^((List.fold_right (fun i tq -> (string_of_expression i)^tq) le ""))^")\n"
+    | AppelProc (n,le) -> "AppelProc  : call "^n^"("^((List.fold_right (fun arg tq -> (string_of_argument arg)^tq) le ""))^")\n"
 
   (* Conversion des fonctions *)
   let string_of_fonction (Fonction(t,n,lp,li)) = (string_of_type t)^" "^n^" ("^((List.fold_right (fun (is_ref,t,n) tq -> (if is_ref then "ref " else "")^(string_of_type t)^" "^n^" "^tq) lp ""))^") = \n"^

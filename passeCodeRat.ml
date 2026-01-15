@@ -132,23 +132,32 @@ let rec analyse_code_expression (e : AstPlacement.expression) : string =
       let params_info = types_parametres_fonction ia_fun in
       (* Générer le code pour chaque argument *)
       let code_args = String.concat "" (
-        List.map2 (fun (is_ref, _) arg ->
-          if is_ref then
-            (* Paramètre ref : passer l'adresse *)
-            match arg with
-            | AstType.Affectable (AstTds.Ident ia) ->
-                begin
-                  match info_ast_to_info ia with
-                  | InfoVar (_, _, dep, reg, _) -> Tam.loada dep reg
-                  | _ -> failwith "Paramètre ref doit être une variable"
-                end
-            | AstType.Affectable (AstTds.Deref aff) ->
-                (* Déréférence de pointeur : passer le pointeur lui-même *)
-                analyse_code_affectable_lecture aff
-            | _ -> failwith "Paramètre ref doit être un affectable"
-          else
-            (* Paramètre normal : évaluer l'expression *)
-            analyse_code_expression arg
+        List.map2 (fun (is_ref_param, _) arg ->
+          match arg with
+          | AstType.ArgNormal e ->
+              (* Type checker garantit que paramètre n'est pas ref *)
+              if is_ref_param then failwith "IMPOSSIBLE: type checker should have caught this";
+              analyse_code_expression e
+          | AstType.ArgRef aff ->
+              (* Type checker garantit que paramètre est ref *)
+              if not is_ref_param then failwith "IMPOSSIBLE: type checker should have caught this";
+              (* Analyser l'affectable pour obtenir son adresse *)
+              match aff with
+              | AstTds.Ident ia ->
+                  begin
+                    match info_ast_to_info ia with
+                    | InfoVar (_, _, dep, reg, is_ref_var) ->
+                        if is_ref_var then
+                          (* Variable est déjà un param ref : charger valeur (adresse) *)
+                          Tam.load 1 dep reg
+                        else
+                          (* Variable normale : charger son adresse *)
+                          Tam.loada dep reg
+                    | _ -> failwith "Impossible : doit être une variable"
+                  end
+              | AstTds.Deref inner_aff ->
+                  (* Déréférencement : passer le pointeur lui-même *)
+                  analyse_code_affectable_lecture inner_aff
         ) params_info args
       ) in
       code_args ^ Tam.call "SB" (nom_fonction ia_fun)
@@ -271,23 +280,32 @@ let rec analyse_code_instruction (i : AstPlacement.instruction) : string =
       let params_info = types_parametres_fonction ia_fun in
       (* Générer le code pour chaque argument *)
       let code_args = String.concat "" (
-        List.map2 (fun (is_ref, _) arg ->
-          if is_ref then
-            (* Paramètre ref : passer l'adresse *)
-            match arg with
-            | AstType.Affectable (AstTds.Ident ia) ->
-                begin
-                  match info_ast_to_info ia with
-                  | InfoVar (_, _, dep, reg, _) -> Tam.loada dep reg
-                  | _ -> failwith "Paramètre ref doit être une variable"
-                end
-            | AstType.Affectable (AstTds.Deref aff) ->
-                (* Déréférence de pointeur : passer le pointeur lui-même *)
-                analyse_code_affectable_lecture aff
-            | _ -> failwith "Paramètre ref doit être un affectable"
-          else
-            (* Paramètre normal : évaluer l'expression *)
-            analyse_code_expression arg
+        List.map2 (fun (is_ref_param, _) arg ->
+          match arg with
+          | AstType.ArgNormal e ->
+              (* Type checker garantit que paramètre n'est pas ref *)
+              if is_ref_param then failwith "IMPOSSIBLE: type checker should have caught this";
+              analyse_code_expression e
+          | AstType.ArgRef aff ->
+              (* Type checker garantit que paramètre est ref *)
+              if not is_ref_param then failwith "IMPOSSIBLE: type checker should have caught this";
+              (* Analyser l'affectable pour obtenir son adresse *)
+              match aff with
+              | AstTds.Ident ia ->
+                  begin
+                    match info_ast_to_info ia with
+                    | InfoVar (_, _, dep, reg, is_ref_var) ->
+                        if is_ref_var then
+                          (* Variable est déjà un param ref : charger valeur (adresse) *)
+                          Tam.load 1 dep reg
+                        else
+                          (* Variable normale : charger son adresse *)
+                          Tam.loada dep reg
+                    | _ -> failwith "Impossible : doit être une variable"
+                  end
+              | AstTds.Deref inner_aff ->
+                  (* Déréférencement : passer le pointeur lui-même *)
+                  analyse_code_affectable_lecture inner_aff
         ) params_info args
       ) in
       code_args ^ Tam.call "SB" (nom_fonction ia_fun)

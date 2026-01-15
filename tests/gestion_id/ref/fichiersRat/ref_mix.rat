@@ -5,5 +5,5 @@ void f(int a, ref int b, bool c) {
 main {
   int x = 5;
   int y = 0;
-  f(10, y, true);
+  f(10, ref y, true);
 }

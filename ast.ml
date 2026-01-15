@@ -29,10 +29,15 @@ type affectable =
   (* Déréférencement d'un affectable *)
   | Deref of affectable
 
+(* Arguments d'appel de fonction *)
+type argument =
+  | ArgNormal of expression  (* Passage par valeur *)
+  | ArgRef of expression     (* Passage par référence *)
+
 (* Expressions de Rat *)
-type expression =
+and expression =
   (* Appel de fonction représenté par le nom de la fonction et la liste des paramètres réels *)
-  | AppelFonction of string * expression list
+  | AppelFonction of string * argument list
   (* Affectable (remplace Ident) *)
   | Affectable of affectable
   (* Booléen *)
@@ -70,7 +75,7 @@ and instruction =
   (* return d'une fonction (avec option pour les procédures) *)
   | Retour of expression option
   (* Appel de procédure comme instruction *)
-  | AppelProc of string * expression list
+  | AppelProc of string * argument list
 
 (* Structure des fonctions de Rat *)
 (* type de retour - nom - liste des paramètres (ref?, type, nom) - corps de la fonction *)
@@ -99,11 +104,16 @@ struct
     | Ident of Tds.info_ast (* le nom de l'identifiant est remplacé par ses informations *)
     | Deref of affectable
 
+  (* Arguments d'appel de fonction *)
+  type argument =
+    | ArgNormal of expression  (* Passage par valeur *)
+    | ArgRef of expression     (* Passage par référence - expression doit être un affectable *)
+
   (* Expressions existantes dans notre langage *)
   (* ~ expression de l'AST syntaxique où les noms des identifiants ont été
   remplacés par les informations associées aux identificateurs *)
-  type expression =
-    | AppelFonction of Tds.info_ast * expression list
+  and expression =
+    | AppelFonction of Tds.info_ast * argument list
     | Affectable of affectable (* remplace Ident *)
     | Booleen of bool
     | Entier of int
@@ -126,7 +136,7 @@ struct
     | Conditionnelle of expression * bloc * bloc
     | TantQue of expression * bloc
     | Retour of expression option * Tds.info_ast  (* les informations sur la fonction à laquelle est associé le retour *)
-    | AppelProc of Tds.info_ast * expression list  (* Appel de procédure *)
+    | AppelProc of Tds.info_ast * argument list  (* Appel de procédure *)
     | Empty (* les nœuds ayant disparus: Const *)
 
 
@@ -157,10 +167,15 @@ type binaire = Fraction | PlusInt | PlusRat | MultInt | MultRat | EquInt | EquBo
 (* = affectable de AstTds *)
 type affectable = AstTds.affectable
 
+(* Arguments d'appel de fonction *)
+type argument =
+  | ArgNormal of expression  (* Passage par valeur *)
+  | ArgRef of affectable     (* Passage par référence - doit être un affectable *)
+
 (* Expressions existantes dans Rat *)
 (* = expression de AstTds *)
-type expression =
-  | AppelFonction of Tds.info_ast * expression list
+and expression =
+  | AppelFonction of Tds.info_ast * argument list
   | Affectable of affectable
   | Booleen of bool
   | Entier of int
@@ -184,7 +199,7 @@ type bloc = instruction list
   | Conditionnelle of expression * bloc * bloc
   | TantQue of expression * bloc
   | Retour of expression option * Tds.info_ast
-  | AppelProc of Tds.info_ast * expression list
+  | AppelProc of Tds.info_ast * argument list
   | Empty (* les nœuds ayant disparus: Const *)
 
 (* informations associées à l'identificateur (dont son nom), liste des paramètres, corps *)
@@ -205,6 +220,10 @@ struct
 (* = affectable de AstType *)
 type affectable = AstType.affectable
 
+(* Arguments d'appel de fonction *)
+(* = argument de AstType *)
+type argument = AstType.argument
+
 (* Expressions existantes dans notre langage *)
 (* = expression de AstType  *)
 type expression = AstType.expression
@@ -220,7 +239,7 @@ type bloc = instruction list * int (* taille du bloc *)
  | Conditionnelle of expression * bloc * bloc
  | TantQue of expression * bloc
  | Retour of expression option * int * int (* taille du retour et taille des paramètres *)
- | AppelProc of Tds.info_ast * expression list
+ | AppelProc of Tds.info_ast * argument list
  | Empty (* les nœuds ayant disparus: Const *)
 
 (* informations associées à l'identificateur (dont son nom), liste de paramètres, corps, expression de retour *)

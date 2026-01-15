@@ -60,17 +60,33 @@ let rec analyse_type_expression (e: AstTds.expression) : typ * AstType.expressio
         | _ -> failwith "Adresse doit être associé à une variable"
       end
 
-  | AstTds.AppelFonction (ia_fun, le) ->
+  | AstTds.AppelFonction (ia_fun, args) ->
       begin
         match info_ast_to_info ia_fun with
         | InfoFun (_, t_ret, ltypes_params) ->
-            let l_te_ne = List.map analyse_type_expression le in
-            let ltypes_args, nle = List.split l_te_ne in
-            let param_types = List.map snd ltypes_params in
-            if est_compatible_list ltypes_args param_types then
-              (t_ret, AstType.AppelFonction (ia_fun, nle))
+            (* Analyser les arguments et extraire infos *)
+            let args_analyzed = List.map analyse_type_argument args in
+            let args_ref_flags = List.map (fun (ref_flag, _, _) -> ref_flag) args_analyzed in
+            let args_types = List.map (fun (_, t, _) -> t) args_analyzed in
+            let nargs = List.map (fun (_, _, arg) -> arg) args_analyzed in
+
+            (* Extraire les flags ref et types des paramètres formels *)
+            let params_ref_flags = List.map fst ltypes_params in
+            let params_types = List.map snd ltypes_params in
+
+            (* VALIDATION 0 : Vérifier d'abord le nombre de paramètres *)
+            if List.length args_types <> List.length params_types then
+              raise (TypesParametresInattendus (args_types, params_types));
+
+            (* VALIDATION 1 : Vérifier cohérence des flags ref *)
+            if args_ref_flags <> params_ref_flags then
+              raise (IncoherenceRefParametres (args_ref_flags, params_ref_flags));
+
+            (* VALIDATION 2 : Vérifier compatibilité des types *)
+            if est_compatible_list args_types params_types then
+              (t_ret, AstType.AppelFonction (ia_fun, nargs))
             else
-              raise (TypesParametresInattendus (ltypes_args, param_types))
+              raise (TypesParametresInattendus (args_types, params_types))
         | InfoVar (n, _, _, _, _) | InfoConst (n, _) | InfoEnum (n, _) | InfoValeurEnum (n, _, _) ->
             raise (MauvaiseUtilisationIdentifiant n)
       end
@@ -136,6 +152,24 @@ let rec analyse_type_expression (e: AstTds.expression) : typ * AstType.expressio
             else
               raise (TypeBinaireInattendu (op, t1, t2))
       end
+
+(* ========= Arguments ========= *)
+
+(* Analyse un argument d'appel de fonction *)
+(* Retourne (is_ref, type, argument_typé) *)
+and analyse_type_argument arg =
+  match arg with
+  | AstTds.ArgNormal e ->
+      let (t, ne) = analyse_type_expression e in
+      (false, t, AstType.ArgNormal ne)
+  | AstTds.ArgRef e ->
+      (* e doit être un Affectable *)
+      match e with
+      | AstTds.Affectable aff ->
+          let (t, naff) = analyse_type_affectable aff in
+          (true, t, AstType.ArgRef naff)
+      | _ ->
+          failwith "Impossible : PasseTds devrait avoir vérifié que ref contient un affectable"
 
 (* ========= Instructions / Blocs ========= *)
 
@@ -210,20 +244,37 @@ let rec analyse_type_instruction ~(dans_fonction: bool) (i: AstTds.instruction) 
         | _ -> failwith "Retour attaché à un identifiant non-fonction (erreur interne)"
       end
 
-  | AstTds.AppelProc (ia_fun, le) ->
+  | AstTds.AppelProc (ia_fun, args) ->
       begin
         match info_ast_to_info ia_fun with
         | InfoFun (_, t_ret, ltypes_params) ->
             (* Vérifier que c'est bien une procédure (type retour Void) *)
             if t_ret <> Void then
               raise (TypeInattendu (t_ret, Void));
-            (* Vérifier les types des paramètres *)
-            let l_te_ne = List.map analyse_type_expression le in
-            let ltypes_args, nle = List.split l_te_ne in
-            if est_compatible_list ltypes_args (List.map snd ltypes_params) then
-              AstType.AppelProc (ia_fun, nle)
+
+            (* Analyser les arguments et extraire infos *)
+            let args_analyzed = List.map analyse_type_argument args in
+            let args_ref_flags = List.map (fun (ref_flag, _, _) -> ref_flag) args_analyzed in
+            let args_types = List.map (fun (_, t, _) -> t) args_analyzed in
+            let nargs = List.map (fun (_, _, arg) -> arg) args_analyzed in
+
+            (* Extraire les flags ref et types des paramètres formels *)
+            let params_ref_flags = List.map fst ltypes_params in
+            let params_types = List.map snd ltypes_params in
+
+            (* VALIDATION 0 : Vérifier d'abord le nombre de paramètres *)
+            if List.length args_types <> List.length params_types then
+              raise (TypesParametresInattendus (args_types, params_types));
+
+            (* VALIDATION 1 : Vérifier cohérence des flags ref *)
+            if args_ref_flags <> params_ref_flags then
+              raise (IncoherenceRefParametres (args_ref_flags, params_ref_flags));
+
+            (* VALIDATION 2 : Vérifier compatibilité des types *)
+            if est_compatible_list args_types params_types then
+              AstType.AppelProc (ia_fun, nargs)
             else
-              raise (TypesParametresInattendus (ltypes_args, (List.map snd ltypes_params)))
+              raise (TypesParametresInattendus (args_types, params_types))
         | _ -> failwith "AppelProc attaché à un identifiant non-fonction (erreur interne)"
       end
 

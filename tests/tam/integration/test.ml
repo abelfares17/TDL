@@ -30,3 +30,7 @@ let%expect_test "ref_pointeurs" =
 let%expect_test "proc_enums" =
   runtam (pathFichiersRat^"proc_enums.rat");
   [%expect{| 01 |}]
+
+let%expect_test "combinaison" =
+  runtam (pathFichiersRat^"combinaison.rat");
+  [%expect{| 105101551051510751510 |}]

@@ -5,6 +5,6 @@ void allouer(ref int* p) {
 
 main {
   int* ptr = null;
-  allouer(ptr);
+  allouer(ref ptr);
   print (*ptr);
 }

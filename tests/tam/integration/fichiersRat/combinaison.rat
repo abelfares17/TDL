@@ -1,0 +1,57 @@
+enum Operation {Addition, Multiplication , Echange};
+
+void echanger (ref int x, ref int y){
+    int tmp = x;
+    x=y;
+    y=tmp;
+    return;
+}
+
+void appliquerOperation (Operation op, ref int x, ref int y){
+    if (op=Addition){
+        x = (x+y);
+    } else {
+        if (op=Multiplication){
+            x = (x*y);
+        } else {
+            if (op=Echange){
+                echanger(ref x, ref y);
+            } else{}
+        }
+    }
+    return;
+}
+
+void afficherValeurPointee (int* p){
+    print (*p);
+    return;
+}
+
+int* intialiserPointeur (int v){
+    int* p = (new int);
+    (*p) = v;
+    return p;
+}
+
+main{
+    int a = 10;
+    int b = 5;
+    int* p1 = &a;
+    int* p2 = &b;
+    int* p3 = intialiserPointeur (10);
+    afficherValeurPointee (p1);
+    afficherValeurPointee (p2);
+    afficherValeurPointee (p3);
+    appliquerOperation(Addition, ref a, ref b);
+    afficherValeurPointee (p1);
+    afficherValeurPointee (p2);
+    afficherValeurPointee (p3);
+    appliquerOperation(Echange, ref a, ref b);
+    afficherValeurPointee (p1);
+    afficherValeurPointee (p2);
+    afficherValeurPointee (p3);
+    appliquerOperation(Multiplication, ref a, ref b);
+    afficherValeurPointee (p1);
+    afficherValeurPointee (p2);
+    afficherValeurPointee (p3);
+}

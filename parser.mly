@@ -52,6 +52,7 @@ open Ast.AstSyntax
 %type <typ> typ
 %type <bool*typ*string> param
 %type <affectable> a
+%type <argument> arg
 %type <expression> e
 %type <string * string list> enum_decl
 
@@ -83,7 +84,7 @@ i :
 | WHILE exp=e li=bloc               {TantQue (exp,li)}
 | RETURN exp=e PV                   {Retour (Some exp)}
 | RETURN PV                         {Retour None}
-| n=ID PO lp=separated_list(VIRG,e) PF PV  {AppelProc (n,lp)}
+| n=ID PO lp=separated_list(VIRG,arg) PF PV  {AppelProc (n,lp)}
 
 typ :
 | BOOL       {Bool}
@@ -97,8 +98,12 @@ a :
 | n=ID                    {Ident n}
 | PO MULT aff=a PF        {Deref aff}
 
+arg :
+| e=e                     {ArgNormal e}
+| REF e=e                 {ArgRef e}
+
 e :
-| n=ID PO lp=separated_list(VIRG,e) PF   {AppelFonction (n,lp)}
+| n=ID PO lp=separated_list(VIRG,arg) PF   {AppelFonction (n,lp)}
 | CO e1=e SLASH e2=e CF   {Binaire(Fraction,e1,e2)}
 | aff=a                   {Affectable aff}
 | TRUE                    {Booleen true}

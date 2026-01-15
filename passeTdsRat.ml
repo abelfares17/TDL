@@ -37,10 +37,26 @@ let rec analyse_tds_affectable tds a =
 (* analyse_tds_expression : tds -> AstSyntax.expression -> AstTds.expression *)
 (* Paramètre tds : la table des symboles courante *)
 (* Paramètre e : l'expression à analyser *)
+(* Analyse un argument d'appel de fonction *)
+(* Vérifie que les arguments ref sont des affectables *)
+let rec analyse_tds_argument tds arg =
+  match arg with
+  | AstSyntax.ArgNormal e ->
+      let ne = analyse_tds_expression tds e in
+      AstTds.ArgNormal ne
+  | AstSyntax.ArgRef e ->
+      (* Vérifier que e est un affectable *)
+      match e with
+      | AstSyntax.Affectable aff ->
+          let naff = analyse_tds_affectable tds aff in
+          AstTds.ArgRef (AstTds.Affectable naff)
+      | _ ->
+          raise (MauvaiseUtilisationIdentifiant "ref")
+
 (* Vérifie la bonne utilisation des identifiants et tranforme l'expression
 en une expression de type AstTds.expression *)
 (* Erreur si mauvaise utilisation des identifiants *)
-let rec analyse_tds_expression tds e =
+and analyse_tds_expression tds e =
   match e with
   | AstSyntax.Affectable a ->
       (* Analyse de l'affectable *)
@@ -82,8 +98,8 @@ let rec analyse_tds_expression tds e =
           begin
             match info_ast_to_info info with
             |InfoFun _ ->
-                  let nle = List.map (analyse_tds_expression tds) args in
-                  AstTds.AppelFonction (info, nle)
+                  let nargs = List.map (analyse_tds_argument tds) args in
+                  AstTds.AppelFonction (info, nargs)
             | _ -> raise(MauvaiseUtilisationIdentifiant n)
           end
       end
@@ -225,8 +241,8 @@ let rec analyse_tds_instruction tds oia i =
           begin
             match info_ast_to_info info with
             |InfoFun _ ->
-                  let nle = List.map (analyse_tds_expression tds) args in
-                  AstTds.AppelProc (info, nle)
+                  let nargs = List.map (analyse_tds_argument tds) args in
+                  AstTds.AppelProc (info, nargs)
             | _ -> raise(MauvaiseUtilisationIdentifiant n)
           end
       end

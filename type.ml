@@ -52,7 +52,7 @@ let%test _ = not (est_compatible_list [Int] [Rat ; Int])
 let%test _ = not (est_compatible_list [Int ; Rat] [Rat ; Int])
 let%test _ = not (est_compatible_list [Bool ; Rat ; Bool] [Bool ; Rat ; Bool ; Int])
 
-let rec getTaille t =
+let getTaille t =
   match t with
   | Int -> 1
   | Bool -> 1

@@ -4,5 +4,5 @@ void increment(ref int x) {
 
 main {
   int n = 5;
-  increment(n);
+  increment(ref n);
 }
