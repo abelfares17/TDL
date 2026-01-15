@@ -1,0 +1,22 @@
+enum Mois {Janvier, Fevrier, Mars, Avril, Mai, Juin, Juillet , Aout, Septembre, Octobre, Novembre, Decembre};
+enum Jour {Lundi, Mardi, Mercredi, Jeudi, Vendredi, Samedi, Dimanche};
+
+bool and (bool b1, bool b2){
+    bool r = b1;
+    if (r){
+        return b2;
+    }else {
+        return false;
+    }
+}
+bool estDateRenduProjet (Jour j, int d, Mois m, int a){
+    bool b1 = (j=Jeudi);
+    bool b2 = (d=15);
+    bool b3 = (m=Janvier);
+    bool b4 = (a=2026);
+    return and(and(and(b1,b2),b3),b4);
+}
+test{
+    print (estDateRenduProjet (Mercredi, 5, Novembre, 2025) );
+    print (estDateRenduProjet (Jeudi, 15, Janvier, 2026) );
+}

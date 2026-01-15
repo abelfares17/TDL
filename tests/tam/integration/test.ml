@@ -25,7 +25,7 @@ let%expect_test "enum_pointeurs" =
 
 let%expect_test "ref_pointeurs" =
   runtam (pathFichiersRat^"ref_pointeurs.rat");
-  [%expect{| 0 |}]
+  [%expect{| 100 |}]
 
 let%expect_test "proc_enums" =
   runtam (pathFichiersRat^"proc_enums.rat");

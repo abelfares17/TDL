@@ -1,10 +1,9 @@
 open Rat
 open Compilateur
-open Exceptions
 
 exception ErreurNonDetectee
 
-let pathFichiersRat = "/Users/mhandfares/Desktop/N7/My_Course/2A/TDL/sourceEtu/tests/type/pointeurs/fichiersRat/"
+let pathFichiersRat = "../../../../../tests/type/pointeurs/fichiersRat/"
 
 (* Tests positifs *)
 let%test_unit "null_compatible"=

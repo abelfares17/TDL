@@ -21,8 +21,8 @@ let pathFichiersRat = "../../../../../tests/tam/pointeurs/fichiersRat/"
 
 let%expect_test "alloc_deref" =
   runtam (pathFichiersRat^"alloc_deref.rat");
-  [%expect{| 0 |}]
+  [%expect{| 42 |}]
 
 let%expect_test "adresse_modif" =
   runtam (pathFichiersRat^"adresse_modif.rat");
-  [%expect{| 5 |}]
+  [%expect{| 10 |}]

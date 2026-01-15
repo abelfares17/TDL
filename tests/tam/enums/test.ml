@@ -26,3 +26,7 @@ let%expect_test "enum_affichage" =
 let%expect_test "enum_egalite" =
   runtam (pathFichiersRat^"enum_egalite.rat");
   [%expect{| falsetrue |}]
+
+let%expect_test "enum_testegalite" =
+  runtam (pathFichiersRat^"enum_testegalite.rat");
+  [%expect{| falsetrue |}]

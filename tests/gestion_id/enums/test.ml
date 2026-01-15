@@ -4,7 +4,7 @@ open Exceptions
 
 exception ErreurNonDetectee
 
-let pathFichiersRat = "/Users/mhandfares/Desktop/N7/My_Course/2A/TDL/sourceEtu/tests/gestion_id/enums/fichiersRat/"
+let pathFichiersRat = "../../../../../tests/gestion_id/enums/fichiersRat/"
 
 (* Tests positifs *)
 let%test_unit "enum_simple"=

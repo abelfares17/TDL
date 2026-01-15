@@ -202,9 +202,10 @@ let rec analyse_code_expression (e : AstPlacement.expression) : string =
 (* Génération code instructions / blocs                    *)
 (* ------------------------------------------------------- *)
 
-let rec analyse_code_affectable_ecriture (a : AstPlacement.affectable) (code_valeur : string) : string =
+let analyse_code_affectable_ecriture (a : AstPlacement.affectable) (code_valeur : string) : string =
   match a with
   | AstTds.Ident ia ->
+      (* code_valeur empile la valeur, store_var sait stocker (direct ou ref) *)
       code_valeur ^ store_var ia
   | AstTds.Deref aff ->
       (* Pour STOREI: on empile l'adresse, puis la valeur, puis STOREI *)
@@ -212,7 +213,7 @@ let rec analyse_code_affectable_ecriture (a : AstPlacement.affectable) (code_val
       let c_aff = analyse_code_affectable_lecture aff in
       (* 2. Empiler la valeur à stocker *)
       (* 3. Appeler STOREI *)
-      c_aff ^ code_valeur ^ Tam.storei 1
+      code_valeur ^ c_aff ^ Tam.storei 1
 
 let rec analyse_code_instruction (i : AstPlacement.instruction) : string =
   match i with

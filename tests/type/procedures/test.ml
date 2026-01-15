@@ -4,7 +4,7 @@ open Exceptions
 
 exception ErreurNonDetectee
 
-let pathFichiersRat = "/Users/mhandfares/Desktop/N7/My_Course/2A/TDL/sourceEtu/tests/type/procedures/fichiersRat/"
+let pathFichiersRat = "../../../../../tests/type/procedures/fichiersRat/"
 
 (* Tests positifs *)
 let%test_unit "return_void"=
