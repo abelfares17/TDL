@@ -1,0 +1,12 @@
+void proc(ref int a, int b, rat c) {
+  int x = 0;
+  bool y = true;
+  return;
+}
+
+main {
+  int m = 1;
+  int n = 2;
+  rat r = [1/2];
+  proc(ref m, n, r);
+}

@@ -1,0 +1,7 @@
+enum Color {Red, Green, Blue};
+
+main {
+  Color c = Red;
+  Color d = Green;
+  bool b = (c = Red);
+}

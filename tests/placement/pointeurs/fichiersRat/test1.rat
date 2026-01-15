@@ -1,0 +1,12 @@
+int get(ref int p) {
+  int v = (*p);
+  return v;
+}
+
+main {
+  int x = 10;
+  int* p = &x;
+  int* q = (new int);
+  (*q) = 5;
+  int y = get(ref p);
+}
