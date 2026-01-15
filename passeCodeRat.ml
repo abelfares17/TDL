@@ -54,6 +54,25 @@ let store_var ia =
         Tam.store (getTaille t) dep reg
   | _ ->
       failwith "store_var: InfoVar attendu"
+  
+let rec get_type_affectable (a : AstPlacement.affectable) : typ =
+  match a with
+  | AstTds.Ident ia ->
+      begin
+        match info_ast_to_info ia with
+        | InfoVar (_, t, _, _, _) -> t
+        | InfoConst _ -> Int
+        | InfoValeurEnum _ -> Int
+        | _ -> failwith "get_type_affectable: Identifiant inattendu"
+      end
+  | AstTds.Deref aff ->
+      (* On récupère le type de l'affectable déréférencé (qui doit être un pointeur) *)
+      let t = get_type_affectable aff in
+      begin
+        match t with
+        | Pointeur t_pointe -> t_pointe
+        | _ -> failwith "get_type_affectable: Déréférencement d'un non-pointeur"
+      end
 
 (* ------------------------------------------------------- *)
 (* Analyse "retour garanti" (pour éviter return implicite) *)
@@ -86,9 +105,13 @@ let rec analyse_code_affectable_lecture (a : AstPlacement.affectable) : string =
   | AstTds.Deref aff ->
       (* Générer le code pour obtenir l'adresse (pointeur) *)
       let c_aff = analyse_code_affectable_lecture aff in
-      (* Puis déréférencer avec LOADI *)
-      (* La taille dépend du type pointé, on utilise 1 par défaut *)
-      c_aff ^ Tam.loadi 1
+      
+      (* Calculer la taille du type pointé pour savoir combien de mots lire *)
+      let t = get_type_affectable a in (* a est le Deref ici *)
+      let taille = getTaille t in
+      
+      (* Puis déréférencer avec la bonne taille *)
+      c_aff ^ Tam.loadi taille
 
 (* ------------------------------------------------------- *)
 (* Génération code expressions                             *)
@@ -217,12 +240,20 @@ let analyse_code_affectable_ecriture (a : AstPlacement.affectable) (code_valeur 
       (* code_valeur empile la valeur, store_var sait stocker (direct ou ref) *)
       code_valeur ^ store_var ia
   | AstTds.Deref aff ->
-      (* Pour STOREI: on empile l'adresse, puis la valeur, puis STOREI *)
-      (* 1. Obtenir l'adresse du pointeur (valeur du pointeur) *)
+      (* 1. Obtenir l'adresse du pointeur *)
       let c_aff = analyse_code_affectable_lecture aff in
-      (* 2. Empiler la valeur à stocker *)
-      (* 3. Appeler STOREI *)
-      code_valeur ^ c_aff ^ Tam.storei 1
+      
+      (* 2. Calculer la taille pour le STOREI *)
+      let t = get_type_affectable a in
+      let taille = getTaille t in
+      
+      (* 3. Empiler la valeur puis l'adresse, puis STOREI *)
+      (* Attention : STOREI attend (valeur...adresse) sur la pile ? *)
+      (* Vérifions TAM : STOREI (n) prend l'adresse au sommet et n mots sous l'adresse. *)
+      (* Votre ordre initial : code_valeur ^ c_aff ^ storei *)
+      (* Pile : [ ... | valeur (n mots) | adresse (1 mot) ] -> STOREI consomme tout. C'est bon. *)
+      
+      code_valeur ^ c_aff ^ Tam.storei taille
 
 let rec analyse_code_instruction (i : AstPlacement.instruction) : string =
   match i with
