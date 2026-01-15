@@ -1,7 +1,7 @@
 open Rat
 open Compilateur
 
-let runtamcmde = "java -jar ../../runtam.jar"
+let runtamcmde = "java -jar ../../../../../tests/runtam.jar"
 
 let runtamcode cmde ratfile =
   let tamcode = compiler ratfile in
