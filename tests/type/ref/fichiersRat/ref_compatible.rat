@@ -1,0 +1,8 @@
+void f(ref int x) {
+  x = 10;
+}
+
+main {
+  int n = 5;
+  f(n);
+}

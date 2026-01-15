@@ -1,0 +1,7 @@
+enum Etat { On, Off };
+
+main {
+  Etat* p = (new Etat);
+  (*p) = On;
+  print (*p);
+}

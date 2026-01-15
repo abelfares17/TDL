@@ -1,0 +1,9 @@
+void f(int a, ref int b, bool c) {
+  b = a;
+}
+
+main {
+  int x = 5;
+  int y = 0;
+  f(10, y, true);
+}

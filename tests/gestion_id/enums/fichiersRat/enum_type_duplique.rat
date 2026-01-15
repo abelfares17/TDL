@@ -1,0 +1,4 @@
+enum Couleur { Rouge };
+enum Couleur { Vert };
+
+main {}

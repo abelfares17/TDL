@@ -1,0 +1,8 @@
+void proc() {
+  print 1;
+  return;
+}
+
+main {
+  proc();
+}

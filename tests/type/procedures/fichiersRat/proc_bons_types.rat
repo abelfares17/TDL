@@ -1,0 +1,7 @@
+void afficher(int n, rat r) {
+  print n;
+}
+
+main {
+  afficher(42, [3/4]);
+}

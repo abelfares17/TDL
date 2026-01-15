@@ -1,0 +1,4 @@
+enum Type1 { Commun };
+enum Type2 { Commun };
+
+main {}

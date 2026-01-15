@@ -1,0 +1,7 @@
+enum Couleur { Rouge, Vert, Bleu };
+
+main {
+  Couleur c = Rouge;
+  print (c = Vert);
+  print (c = Rouge);
+}

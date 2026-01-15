@@ -1,0 +1,10 @@
+void allouer(ref int* p) {
+  p = (new int);
+  (*p) = 100;
+}
+
+main {
+  int* ptr = null;
+  allouer(ptr);
+  print (*ptr);
+}

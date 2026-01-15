@@ -59,7 +59,7 @@ open Ast
     | AstType.Declaration (ia, e) ->
         begin
           match info_ast_to_info ia with
-          | InfoVar (_, t, _, _) ->
+          | InfoVar (_, t, _, _, _) ->
               let taille = getTaille t in
               modifier_adresse_variable dep base ia;
               let dep_apres = dep + taille in
@@ -95,6 +95,9 @@ open Ast
 
     | AstType.Retour (e, _ia_fun) ->
         (AstPlacement.Retour (e, taille_retour, taille_params), dep, 0)
+
+    | AstType.AppelProc (ia_fun, args) ->
+        (AstPlacement.AppelProc (ia_fun, args), dep, 0)
 
     | AstType.Empty ->
         (AstPlacement.Empty, dep, 0)
@@ -148,7 +151,7 @@ open Ast
 
     (* Taille totale des paramètres *)
     let taille_params =
-      List.fold_left (fun acc t -> acc + getTaille t) 0 ltypes_params
+      List.fold_left (fun acc (is_ref, t) -> if is_ref then acc + 1 else acc + getTaille t) 0 ltypes_params
     in
 
     (* 1) Paramètres en négatif : de -taille_params à -1 *)
@@ -157,8 +160,9 @@ open Ast
       | ia_param :: q ->
           begin
             match info_ast_to_info ia_param with
-            | InfoVar (_, t_param, _, _) ->
-                let taille = getTaille t_param in
+            | InfoVar (_, t_param, _, _, is_ref) ->
+                (* Un paramètre ref prend 1 mot (adresse), sinon la taille du type *)
+                let taille = if is_ref then 1 else getTaille t_param in
                 modifier_adresse_variable dep "LB" ia_param;
                 place_params (dep + taille) (ia_param :: acc) q
             | _ ->

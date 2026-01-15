@@ -1,0 +1,5 @@
+(library
+  (name tam_enums)
+  (inline_tests)
+  (preprocess (pps ppx_inline_test ppx_expect))
+  (libraries rat unix))

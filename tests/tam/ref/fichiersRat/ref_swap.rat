@@ -1,0 +1,13 @@
+void swap(ref int a, ref int b) {
+  int temp = a;
+  a = b;
+  b = temp;
+}
+
+main {
+  int x = 1;
+  int y = 4;
+  swap(x, y);
+  print x;
+  print y;
+}

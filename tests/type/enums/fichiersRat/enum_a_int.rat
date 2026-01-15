@@ -1,0 +1,5 @@
+enum Couleur { Rouge };
+
+main {
+  int x = Rouge;
+}

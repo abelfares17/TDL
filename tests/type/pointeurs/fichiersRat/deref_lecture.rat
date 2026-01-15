@@ -1,0 +1,5 @@
+main {
+  int* p = (new int);
+  (*p) = 42;
+  int x = (*p);
+}

@@ -1,0 +1,5 @@
+main {
+  int* pi = (new int);
+  bool* pb = (new bool);
+  rat* pr = (new rat);
+}

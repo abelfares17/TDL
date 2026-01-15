@@ -1,0 +1,7 @@
+enum Couleur { Rouge, Vert };
+enum Etat { Actif, Inactif };
+
+main {
+  Couleur c = Rouge;
+  Etat e = Actif;
+}

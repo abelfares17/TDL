@@ -1,0 +1,9 @@
+void test(ref int a) {
+  a = 10;
+}
+
+main {
+  int x = 5;
+  test(x);
+  print x;
+}

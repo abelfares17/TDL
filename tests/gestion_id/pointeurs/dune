@@ -1,0 +1,5 @@
+(library
+  (name gestion_id_pointeurs)
+  (inline_tests)
+  (preprocess (pps ppx_inline_test))
+  (libraries rat))

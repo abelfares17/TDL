@@ -1,0 +1,7 @@
+void f(ref int x) {
+  x = 10;
+}
+
+main {
+  f(inexistant);
+}

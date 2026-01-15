@@ -21,21 +21,37 @@ let types_parametres_fonction ia =
   | _ -> failwith "types_parametres_fonction: InfoFun attendu"
 
 let taille_parametres_fonction ia =
-  List.fold_left (fun acc t -> acc + getTaille t) 0 (types_parametres_fonction ia)
+  let params = types_parametres_fonction ia in
+  List.fold_left (fun acc (is_ref, t) ->
+    if is_ref then acc + 1  (* Un paramètre ref prend 1 mot (adresse) *)
+    else acc + getTaille t
+  ) 0 params
 
 let load_ident ia =
   match info_ast_to_info ia with
-  | InfoVar (_, t, dep, reg) ->
-      Tam.load (getTaille t) dep reg
+  | InfoVar (_, t, dep, reg, is_ref) ->
+      if is_ref then
+        (* Paramètre ref : charger l'adresse puis déréférencer *)
+        Tam.load 1 dep reg ^ Tam.loadi (getTaille t)
+      else
+        Tam.load (getTaille t) dep reg
   | InfoConst (_, v) ->
       Tam.loadl_int v
+  | InfoValeurEnum (_, _, idx) ->
+      Tam.loadl_int idx
   | InfoFun _ ->
       failwith "load_ident: identifiant de fonction utilisé comme expression"
+  | InfoEnum _ ->
+      failwith "load_ident: type enum utilisé comme expression"
 
 let store_var ia =
   match info_ast_to_info ia with
-  | InfoVar (_, t, dep, reg) ->
-      Tam.store (getTaille t) dep reg
+  | InfoVar (_, t, dep, reg, is_ref) ->
+      if is_ref then
+        (* Paramètre ref : charger l'adresse puis stocker indirectement *)
+        Tam.load 1 dep reg ^ Tam.storei (getTaille t)
+      else
+        Tam.store (getTaille t) dep reg
   | _ ->
       failwith "store_var: InfoVar attendu"
 
@@ -60,6 +76,21 @@ and instr_retour_garanti (i : AstPlacement.instruction) : bool =
       false
 
 (* ------------------------------------------------------- *)
+(* Génération code affectables                             *)
+(* ------------------------------------------------------- *)
+
+let rec analyse_code_affectable_lecture (a : AstPlacement.affectable) : string =
+  match a with
+  | AstTds.Ident ia ->
+      load_ident ia
+  | AstTds.Deref aff ->
+      (* Générer le code pour obtenir l'adresse (pointeur) *)
+      let c_aff = analyse_code_affectable_lecture aff in
+      (* Puis déréférencer avec LOADI *)
+      (* La taille dépend du type pointé, on utilise 1 par défaut *)
+      c_aff ^ Tam.loadi 1
+
+(* ------------------------------------------------------- *)
 (* Génération code expressions                             *)
 (* ------------------------------------------------------- *)
 
@@ -71,11 +102,55 @@ let rec analyse_code_expression (e : AstPlacement.expression) : string =
   | AstType.Booleen b ->
       Tam.loadl_int (if b then 1 else 0)
 
-  | AstType.Ident ia ->
-      load_ident ia
+  | AstType.Affectable a ->
+      analyse_code_affectable_lecture a
+
+  | AstType.IdentEnum ia ->
+      begin
+        match info_ast_to_info ia with
+        | InfoValeurEnum (_, _, idx) -> Tam.loadl_int idx
+        | _ -> failwith "IdentEnum doit être associé à InfoValeurEnum"
+      end
+
+  | AstType.Null ->
+      (* Représenter null comme -1 ou 0 *)
+      Tam.loadl_int 0
+
+  | AstType.New t ->
+      (* Allocation dynamique: empiler la taille puis appeler MAlloc *)
+      Tam.loadl_int (getTaille t) ^ Tam.subr "MAlloc"
+
+  | AstType.Adresse ia ->
+      begin
+        match info_ast_to_info ia with
+        | InfoVar (_, _, dep, reg, _) -> Tam.loada dep reg
+        | _ -> failwith "Adresse doit être associé à une variable"
+      end
 
   | AstType.AppelFonction (ia_fun, args) ->
-      let code_args = String.concat "" (List.map analyse_code_expression args) in
+      (* Récupérer les informations sur les paramètres de la fonction *)
+      let params_info = types_parametres_fonction ia_fun in
+      (* Générer le code pour chaque argument *)
+      let code_args = String.concat "" (
+        List.map2 (fun (is_ref, _) arg ->
+          if is_ref then
+            (* Paramètre ref : passer l'adresse *)
+            match arg with
+            | AstType.Affectable (AstTds.Ident ia) ->
+                begin
+                  match info_ast_to_info ia with
+                  | InfoVar (_, _, dep, reg, _) -> Tam.loada dep reg
+                  | _ -> failwith "Paramètre ref doit être une variable"
+                end
+            | AstType.Affectable (AstTds.Deref aff) ->
+                (* Déréférence de pointeur : passer le pointeur lui-même *)
+                analyse_code_affectable_lecture aff
+            | _ -> failwith "Paramètre ref doit être un affectable"
+          else
+            (* Paramètre normal : évaluer l'expression *)
+            analyse_code_expression arg
+        ) params_info args
+      ) in
       code_args ^ Tam.call "SB" (nom_fonction ia_fun)
 
   | AstType.Unaire (op, e1) ->
@@ -116,6 +191,9 @@ let rec analyse_code_expression (e : AstPlacement.expression) : string =
         | AstType.EquBool ->
             c1 ^ c2 ^ Tam.subr "IEq"
 
+        | AstType.EquEnum ->
+            c1 ^ c2 ^ Tam.subr "IEq"
+
         | AstType.Inf ->
             c1 ^ c2 ^ Tam.subr "ILss"
       end
@@ -124,13 +202,26 @@ let rec analyse_code_expression (e : AstPlacement.expression) : string =
 (* Génération code instructions / blocs                    *)
 (* ------------------------------------------------------- *)
 
+let rec analyse_code_affectable_ecriture (a : AstPlacement.affectable) (code_valeur : string) : string =
+  match a with
+  | AstTds.Ident ia ->
+      code_valeur ^ store_var ia
+  | AstTds.Deref aff ->
+      (* Pour STOREI: on empile l'adresse, puis la valeur, puis STOREI *)
+      (* 1. Obtenir l'adresse du pointeur (valeur du pointeur) *)
+      let c_aff = analyse_code_affectable_lecture aff in
+      (* 2. Empiler la valeur à stocker *)
+      (* 3. Appeler STOREI *)
+      c_aff ^ code_valeur ^ Tam.storei 1
+
 let rec analyse_code_instruction (i : AstPlacement.instruction) : string =
   match i with
   | AstPlacement.Declaration (ia, e) ->
       analyse_code_expression e ^ store_var ia
 
-  | AstPlacement.Affectation (ia, e) ->
-      analyse_code_expression e ^ store_var ia
+  | AstPlacement.Affectation (aff, e) ->
+      let code_valeur = analyse_code_expression e in
+      analyse_code_affectable_ecriture aff code_valeur
 
   | AstPlacement.AffichageInt e ->
       analyse_code_expression e ^ Tam.subr "IOut"
@@ -162,8 +253,43 @@ let rec analyse_code_instruction (i : AstPlacement.instruction) : string =
       ^ Tam.jump ldeb
       ^ Tam.label lfin
 
-  | AstPlacement.Retour (e, taille_ret, taille_params) ->
-      analyse_code_expression e ^ Tam.return taille_ret taille_params
+  | AstPlacement.Retour (eo, taille_ret, taille_params) ->
+      begin
+        match eo with
+        | Some e ->
+            (* Return avec expression *)
+            analyse_code_expression e ^ Tam.return taille_ret taille_params
+        | None ->
+            (* Return sans expression (procédure) *)
+            Tam.return taille_ret taille_params
+      end
+
+  | AstPlacement.AppelProc (ia_fun, args) ->
+      (* Appel de procédure : évaluer les arguments et appeler *)
+      (* Récupérer les informations sur les paramètres de la fonction *)
+      let params_info = types_parametres_fonction ia_fun in
+      (* Générer le code pour chaque argument *)
+      let code_args = String.concat "" (
+        List.map2 (fun (is_ref, _) arg ->
+          if is_ref then
+            (* Paramètre ref : passer l'adresse *)
+            match arg with
+            | AstType.Affectable (AstTds.Ident ia) ->
+                begin
+                  match info_ast_to_info ia with
+                  | InfoVar (_, _, dep, reg, _) -> Tam.loada dep reg
+                  | _ -> failwith "Paramètre ref doit être une variable"
+                end
+            | AstType.Affectable (AstTds.Deref aff) ->
+                (* Déréférence de pointeur : passer le pointeur lui-même *)
+                analyse_code_affectable_lecture aff
+            | _ -> failwith "Paramètre ref doit être un affectable"
+          else
+            (* Paramètre normal : évaluer l'expression *)
+            analyse_code_expression arg
+        ) params_info args
+      ) in
+      code_args ^ Tam.call "SB" (nom_fonction ia_fun)
 
   | AstPlacement.Empty ->
       ""
@@ -185,11 +311,22 @@ let analyse_code_fonction (AstPlacement.Fonction (ia_fun, _lparams, (li, taille)
   in
   (* IMPORTANT :
      - pas de RETURN implicite (sinon testfun5 imprime 0)
-     - si pas de retour garanti, on HALT pour éviter le fall-through *)
+     - si pas de retour garanti :
+       * pour une procédure (void), on ajoute RETURN (0) taille_params
+       * pour une fonction, on HALT pour éviter le fall-through *)
   if bloc_retour_garanti li then
     code_corps
   else
-    code_corps ^ Tam.halt
+    (* Vérifier si c'est une procédure *)
+    match info_ast_to_info ia_fun with
+    | InfoFun (_, t_ret, _) ->
+        if t_ret = Void then
+          (* Procédure : retour implicite *)
+          code_corps ^ Tam.return 0 (taille_parametres_fonction ia_fun)
+        else
+          (* Fonction : HALT pour signaler erreur *)
+          code_corps ^ Tam.halt
+    | _ -> failwith "analyse_code_fonction: InfoFun attendu"
 
 let analyser (AstPlacement.Programme (fonctions, bloc_main) : t1) : t2 =
   let code_fcts = String.concat "" (List.map analyse_code_fonction fonctions) in

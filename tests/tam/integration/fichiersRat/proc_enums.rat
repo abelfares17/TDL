@@ -1,0 +1,10 @@
+enum Couleur { Rouge, Vert };
+
+void afficher(Couleur c) {
+  print c;
+}
+
+main {
+  afficher(Rouge);
+  afficher(Vert);
+}

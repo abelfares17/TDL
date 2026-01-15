@@ -6,20 +6,59 @@ open Type
 type t1 = Ast.AstTds.programme
 type t2 = Ast.AstType.programme
 
+(* ========= Affectables ========= *)
+
+let rec analyse_type_affectable (a: AstTds.affectable) : typ * AstType.affectable =
+  match a with
+  | AstTds.Ident ia ->
+      begin
+        match info_ast_to_info ia with
+        | InfoVar (_, t, _, _, _) -> (t, AstTds.Ident ia)
+        | InfoConst (_, _) -> (Int, AstTds.Ident ia)
+        | InfoFun (n, _, _) -> raise (MauvaiseUtilisationIdentifiant n)
+        | InfoEnum (n, _) -> raise (MauvaiseUtilisationIdentifiant n)
+        | InfoValeurEnum (n, _, _) -> raise (MauvaiseUtilisationIdentifiant n)
+      end
+  | AstTds.Deref aff ->
+      let (t_aff, naff) = analyse_type_affectable aff in
+      begin
+        match t_aff with
+        | Pointeur t -> (t, AstTds.Deref naff)  (* Déréférencement d'un pointeur retourne le type pointé *)
+        | _ -> raise (TypeInattendu (t_aff, Pointeur Undefined))
+      end
+
 (* ========= Expressions ========= *)
 
 let rec analyse_type_expression (e: AstTds.expression) : typ * AstType.expression =
   match e with
-  | AstTds.Ident ia ->
-      begin
-        match info_ast_to_info ia with
-        | InfoVar (_, t, _, _) -> (t, AstType.Ident ia)
-        | InfoConst (_, _) -> (Int, AstType.Ident ia)
-        | InfoFun (n, _, _) -> raise (MauvaiseUtilisationIdentifiant n)
-      end
+  | AstTds.Affectable a ->
+      let (t_a, na) = analyse_type_affectable a in
+      (t_a, AstType.Affectable na)
 
   | AstTds.Booleen b -> (Bool, AstType.Booleen b)
   | AstTds.Entier n  -> (Int, AstType.Entier n)
+
+  | AstTds.IdentEnum ia ->
+      begin
+        match info_ast_to_info ia with
+        | InfoValeurEnum (_, nom_type, _) -> (Enum nom_type, AstType.IdentEnum ia)
+        | _ -> failwith "IdentEnum doit être associé à InfoValeurEnum"
+      end
+
+  | AstTds.Null ->
+      (* null est compatible avec tout pointeur, on utilise Pointeur Undefined *)
+      (Pointeur Undefined, AstType.Null)
+
+  | AstTds.New t ->
+      (* new TYPE retourne un pointeur sur TYPE *)
+      (Pointeur t, AstType.New t)
+
+  | AstTds.Adresse ia ->
+      begin
+        match info_ast_to_info ia with
+        | InfoVar (_, t, _, _, _) -> (Pointeur t, AstType.Adresse ia)
+        | _ -> failwith "Adresse doit être associé à une variable"
+      end
 
   | AstTds.AppelFonction (ia_fun, le) ->
       begin
@@ -27,11 +66,12 @@ let rec analyse_type_expression (e: AstTds.expression) : typ * AstType.expressio
         | InfoFun (_, t_ret, ltypes_params) ->
             let l_te_ne = List.map analyse_type_expression le in
             let ltypes_args, nle = List.split l_te_ne in
-            if est_compatible_list ltypes_args ltypes_params then
+            let param_types = List.map snd ltypes_params in
+            if est_compatible_list ltypes_args param_types then
               (t_ret, AstType.AppelFonction (ia_fun, nle))
             else
-              raise (TypesParametresInattendus (ltypes_args, ltypes_params))
-        | InfoVar (n, _, _, _) | InfoConst (n, _) ->
+              raise (TypesParametresInattendus (ltypes_args, param_types))
+        | InfoVar (n, _, _, _, _) | InfoConst (n, _) | InfoEnum (n, _) | InfoValeurEnum (n, _, _) ->
             raise (MauvaiseUtilisationIdentifiant n)
       end
 
@@ -79,6 +119,14 @@ let rec analyse_type_expression (e: AstTds.expression) : typ * AstType.expressio
               (Bool, AstType.Binaire (AstType.EquInt, ne1, ne2))
             else if t1 = Bool && t2 = Bool then
               (Bool, AstType.Binaire (AstType.EquBool, ne1, ne2))
+            else if est_compatible t1 t2 then
+              (* Vérifier si c'est un enum ou un pointeur *)
+              begin
+                match t1 with
+                | Enum _ -> (Bool, AstType.Binaire (AstType.EquEnum, ne1, ne2))
+                | Pointeur _ -> (Bool, AstType.Binaire (AstType.EquInt, ne1, ne2))  (* Pointeurs comparés comme entiers *)
+                | _ -> raise (TypeBinaireInattendu (op, t1, t2))
+              end
             else
               raise (TypeBinaireInattendu (op, t1, t2))
 
@@ -101,18 +149,16 @@ let rec analyse_type_instruction ~(dans_fonction: bool) (i: AstTds.instruction) 
       end else
         raise (TypeInattendu (t_e, t_decl))
 
-  | AstTds.Affectation (ia, e) ->
+  | AstTds.Affectation (aff, e) ->
+      (* Analyse de l'affectable pour obtenir son type *)
+      let (t_aff, naff) = analyse_type_affectable aff in
+      (* Analyse de l'expression *)
       let (t_e, ne) = analyse_type_expression e in
-      begin
-        match info_ast_to_info ia with
-        | InfoVar (_, t_var, _, _) ->
-            if est_compatible t_var t_e then
-              AstType.Affectation (ia, ne)
-            else
-              raise (TypeInattendu (t_e, t_var))
-        | InfoConst (n, _) | InfoFun (n, _, _) ->
-            raise (MauvaiseUtilisationIdentifiant n)
-      end
+      (* Vérification de la compatibilité des types *)
+      if est_compatible t_aff t_e then
+        AstType.Affectation (naff, ne)
+      else
+        raise (TypeInattendu (t_e, t_aff))
 
   | AstTds.Affichage e ->
       let (t_e, ne) = analyse_type_expression e in
@@ -121,6 +167,9 @@ let rec analyse_type_instruction ~(dans_fonction: bool) (i: AstTds.instruction) 
         | Int  -> AstType.AffichageInt ne
         | Rat  -> AstType.AffichageRat ne
         | Bool -> AstType.AffichageBool ne
+        | Enum _ -> AstType.AffichageInt ne  (* Les enums sont représentés comme des entiers *)
+        | Pointeur _ -> AstType.AffichageInt ne  (* Les pointeurs sont représentés comme des entiers (adresses) *)
+        | Void -> raise (TypeInattendu (Void, Int))
         | Undefined -> raise (TypeInattendu (Undefined, Int))
       end
 
@@ -137,17 +186,45 @@ let rec analyse_type_instruction ~(dans_fonction: bool) (i: AstTds.instruction) 
       let nb = analyse_type_bloc ~dans_fonction b in
       AstType.TantQue (nc, nb)
 
-  | AstTds.Retour (e, ia_fun) ->
+  | AstTds.Retour (eo, ia_fun) ->
       if not dans_fonction then raise RetourDansMain;
-      let (t_e, ne) = analyse_type_expression e in
       begin
         match info_ast_to_info ia_fun with
         | InfoFun (_, t_ret, _) ->
-            if est_compatible t_ret t_e then
-              AstType.Retour (ne, ia_fun)
-            else
-              raise (TypeInattendu (t_e, t_ret))
+            begin
+              match eo with
+              | Some e ->
+                  (* Return avec expression : vérifier que le type correspond au type de retour de la fonction *)
+                  let (t_e, ne) = analyse_type_expression e in
+                  if est_compatible t_ret t_e then
+                    AstType.Retour (Some ne, ia_fun)
+                  else
+                    raise (TypeInattendu (t_e, t_ret))
+              | None ->
+                  (* Return sans expression : vérifier que la fonction est void *)
+                  if t_ret = Void then
+                    AstType.Retour (None, ia_fun)
+                  else
+                    raise (TypeInattendu (Void, t_ret))
+            end
         | _ -> failwith "Retour attaché à un identifiant non-fonction (erreur interne)"
+      end
+
+  | AstTds.AppelProc (ia_fun, le) ->
+      begin
+        match info_ast_to_info ia_fun with
+        | InfoFun (_, t_ret, ltypes_params) ->
+            (* Vérifier que c'est bien une procédure (type retour Void) *)
+            if t_ret <> Void then
+              raise (TypeInattendu (t_ret, Void));
+            (* Vérifier les types des paramètres *)
+            let l_te_ne = List.map analyse_type_expression le in
+            let ltypes_args, nle = List.split l_te_ne in
+            if est_compatible_list ltypes_args (List.map snd ltypes_params) then
+              AstType.AppelProc (ia_fun, nle)
+            else
+              raise (TypesParametresInattendus (ltypes_args, (List.map snd ltypes_params)))
+        | _ -> failwith "AppelProc attaché à un identifiant non-fonction (erreur interne)"
       end
 
   | AstTds.Empty -> AstType.Empty
@@ -161,8 +238,8 @@ let analyse_type_fonction (f: AstTds.fonction) : AstType.fonction =
   match f with
   | AstTds.Fonction (_t_ret_syntax, ia_fun, lparams, bloc) ->
       (* lparams : (typ * info_ast) list *)
-      let params_types = List.map fst lparams in
-      let params_infos = List.map snd lparams in
+      let params_types = List.map (fun (_, t, _) -> t) lparams in
+      let params_infos = List.map (fun (_, _, ia) -> ia) lparams in
 
       (* signature attendue depuis InfoFun *)
       let (_t_ret, ltypes_params_attendus) =
@@ -172,12 +249,12 @@ let analyse_type_fonction (f: AstTds.fonction) : AstType.fonction =
       in
 
       (* (optionnel mais propre) : vérifier cohérence signature déclarée vs InfoFun *)
-      if not (est_compatible_list params_types ltypes_params_attendus) then
+      if not (est_compatible_list params_types (List.map snd ltypes_params_attendus)) then
         (* Ici c'est plutôt une incohérence TDS, mais on signale quand même *)
-        raise (TypesParametresInattendus (params_types, ltypes_params_attendus));
+        raise (TypesParametresInattendus (params_types, (List.map snd ltypes_params_attendus)));
 
       (* enregistrer le type de chaque paramètre dans sa InfoVar *)
-      List.iter (fun (t_p, ia_p) -> modifier_type_variable t_p ia_p) lparams;
+      List.iter (fun (_, t_p, ia_p) -> modifier_type_variable t_p ia_p) lparams;
 
       (* typer le corps *)
       let nbloc = analyse_type_bloc ~dans_fonction:true bloc in

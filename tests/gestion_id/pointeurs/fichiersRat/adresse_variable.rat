@@ -1,0 +1,6 @@
+main {
+  int a = 5;
+  a = a + 10;
+  int x = 5;
+  int* p = &x;
+}
